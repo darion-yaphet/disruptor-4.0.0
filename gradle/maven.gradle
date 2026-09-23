@@ -53,5 +53,8 @@ publishing {
 }
 
 signing {
+    // Only sign for a real remote release publish; local installs
+    // (publishToMavenLocal) and plain builds must not require a GPG key.
+    required { gradle.taskGraph.hasTask(':publish') }
     sign publishing.publications.disruptor
 }

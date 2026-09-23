@@ -3,7 +3,11 @@
 //
 
 jcstress {
-    jcstressDependency = 'org.openjdk.jcstress:jcstress-core:0.16'
+    // Pinned to 0.11: 0.16 pulls in JNA 5.x, whose com.sun.jna.Native static-init
+    // calls java.util.logging.Logger.getLogger(). On Linux (where jcstress loads
+    // JNA for CPU affinity in every forked JVM) that initializes the LogManager,
+    // which trips LoggerInitializationStress. 0.11 uses JNA 4.5.2 (no JUL usage).
+    jcstressDependency = 'org.openjdk.jcstress:jcstress-core:0.11'
     includeTests = true
     mode = providers.gradleProperty('mode').getOrElse('quick')
 }

@@ -42,7 +42,7 @@ publishing {
 
     repositories {
         maven {
-            url project.hasProperty('sonatypeUrl') ? project['sonatypeUrl'] : 'https://oss.sonatype.org/service/local/staging/deploy/maven2'
+            url = project.hasProperty('sonatypeUrl') ? project['sonatypeUrl'] : 'https://oss.sonatype.org/service/local/staging/deploy/maven2'
 
             credentials {
                 username = project.hasProperty('sonatypeUsername') ? project['sonatypeUsername'] : 'fake-user'
@@ -55,6 +55,6 @@ publishing {
 signing {
     // Only sign for a real remote release publish; local installs
     // (publishToMavenLocal) and plain builds must not require a GPG key.
-    required { gradle.taskGraph.hasTask(':publish') }
+    setRequired({ gradle.taskGraph.hasTask(':publish') })
     sign publishing.publications.disruptor
 }

@@ -11,15 +11,20 @@ jobs:
     name: Java ${{ matrix.java }}
     steps:
       - uses: actions/checkout@v4
-      - name: Set up java
+      - name: Set up JDK ${{ matrix.java }} (toolchain for compile & test)
         uses: actions/setup-java@v5
         with:
           java-version: ${{ matrix.java }}
           distribution: 'zulu'
+      - name: Set up JDK 17 (Gradle 9 requires JVM 17+ to run)
+        uses: actions/setup-java@v5
+        with:
+          java-version: 17
+          distribution: 'zulu'
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
       - name: Build with Gradle
-        run: ./gradlew build
+        run: ./gradlew build -Pdisruptor.javaToolchain=${{ matrix.java }} "-Porg.gradle.java.installations.paths=$JAVA_HOME_${{ matrix.java }}_X64"
       - name: Archive artifacts
         uses: actions/upload-artifact@v4
         with:

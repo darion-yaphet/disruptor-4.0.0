@@ -14,6 +14,8 @@ This is a single-module Java library built with Gradle. Production code lives in
 - `./gradlew perfJar` — package custom performance tests for individual execution.
 - `./gradlew asciidoctor` — render developer and user documentation.
 
+The build uses the Gradle wrapper (Gradle 9.7.1), which requires JDK 17 or newer to run Gradle itself. Compilation and tests use a Java toolchain (default: Java 11, keeping the library's bytecode promise; missing JDKs are auto-provisioned via the Foojay resolver). Pass `-Pdisruptor.javaToolchain=<version>` to compile and run tests on a different JDK — bytecode stays Java 11 via `--release 11`.
+
 Use the checked-in wrapper rather than a system Gradle installation. `./gradlew setUpGitHooks` installs the repository pre-commit hook.
 
 ## Coding Style & Naming Conventions

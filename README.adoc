@@ -1,18 +1,24 @@
 = LMAX Disruptor
 
-image:https://github.com/LMAX-Exchange/disruptor/workflows/Java%20CI%20with%20Gradle/badge.svg[Java CI with Gradle,link=https://github.com/LMAX-Exchange/disruptor/actions/workflows/gradle-build.yml]
-image:https://github.com/LMAX-Exchange/disruptor/workflows/CodeQL/badge.svg[CodeQL,link=https://github.com/LMAX-Exchange/disruptor/actions/workflows/codeql-analysis.yml]
-image:https://img.shields.io/github/license/LMAX-Exchange/disruptor[License,link=https://github.com/LMAX-Exchange/disruptor/blob/master/LICENCE.txt]
+image:https://github.com/darion-yaphet/disruptor-4.0.0/workflows/Java%20CI%20with%20Gradle/badge.svg[Java CI with Gradle,link=https://github.com/darion-yaphet/disruptor-4.0.0/actions/workflows/gradle-build.yml]
+image:https://github.com/darion-yaphet/disruptor-4.0.0/workflows/CodeQL/badge.svg[CodeQL,link=https://github.com/darion-yaphet/disruptor-4.0.0/actions/workflows/codeql-analysis.yml]
+image:https://img.shields.io/github/license/darion-yaphet/disruptor-4.0.0[License,link=https://github.com/darion-yaphet/disruptor-4.0.0/blob/main/LICENCE.txt]
 
 A High Performance Inter-Thread Messaging Library
 
+== About This Fork
+
+This repository is a fork of https://github.com/LMAX-Exchange/disruptor[LMAX-Exchange/disruptor], maintained with the assistance of LLM (Large Language Model) tooling.
+
+All credit for the original design and implementation goes to the LMAX Development Team. This project stands as a tribute to their groundbreaking work on mechanical sympathy and lock-free inter-thread messaging.
+
 == Maintainer
 
-LMAX Development Team
+Originally created and maintained by the LMAX Development Team.
 
 == Support
 
- - Open a ticket in GitHub https://github.com/LMAX-Exchange/disruptor/issues[issue tracker]
+ - Open a ticket in GitHub https://github.com/darion-yaphet/disruptor-4.0.0/issues[issue tracker]
  - https://groups.google.com/group/lmax-disruptor[Google Group]
 
 == Documentation
@@ -21,6 +27,4 @@ LMAX Development Team
 * https://lmax-exchange.github.io/disruptor/user-guide/index.html[User Guide]
 * https://lmax-exchange.github.io/disruptor/javadoc/com.lmax.disruptor/module-summary.html[API Documentation]
 * https://lmax-exchange.github.io/disruptor/developer-guide/index.html[Developer Guide]
-* https://github.com/LMAX-Exchange/disruptor/wiki/Frequently-Asked-Questions[FAQ]
-
-
+* https://github.com/LMAX-Exchange/disruptor/wiki/Frequently-Asked-Questions[FAQ (upstream wiki)]

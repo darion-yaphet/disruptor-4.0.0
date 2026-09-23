@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LMAX Disruptor Architecture</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&amp;family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --paper: #f5f5f5;
+      --ink: #2d3142;
+      --muted: #4f5d75;
+      --soft: #7a8399;
+      --accent: #eb6c36;
+      --link: #2e5aa8;
+      --sans: 'Geist', system-ui, sans-serif;
+      --serif: 'Instrument Serif', Georgia, serif;
+      --mono: 'Geist Mono', ui-monospace, monospace;
+    }
+    body {
+      min-height: 100vh;
+      padding: 3rem 2rem;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: var(--sans);
+    }
+    main { width: min(100%, 1280px); margin: 0 auto; }
+    .eyebrow {
+      margin-bottom: 0.5rem;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.66rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+    h1 {
+      margin-bottom: 0.5rem;
+      font-family: var(--serif);
+      font-size: 2rem;
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+    }
+    .subtitle {
+      max-width: 72ch;
+      margin-bottom: 1.5rem;
+      color: var(--muted);
+      font-size: 0.875rem;
+      line-height: 1.5;
+    }
+    .canvas { overflow-x: auto; }
+    svg { display: block; width: 100%; min-width: 1000px; }
+    footer {
+      margin-top: 1rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid rgba(45, 49, 66, 0.12);
+      color: var(--soft);
+      font-family: var(--mono);
+      font-size: 0.7rem;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <p class="eyebrow">Architecture · LMAX Disruptor 4.0</p>
+    <h1>LMAX Disruptor architecture</h1>
+    <p class="subtitle">
+      Producers publish into a preallocated ring; sequencers coordinate claims and visibility;
+      consumers advance gating sequences to release capacity and close the backpressure loop.
+    </p>
+
+    <div class="canvas">
+      <svg viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" role="img"
+           aria-labelledby="disruptor-architecture-title disruptor-architecture-desc">
+        <title id="disruptor-architecture-title">LMAX Disruptor architecture</title>
+        <desc id="disruptor-architecture-desc">Architecture diagram showing producers publishing through a ring buffer and sequencer, consumers waiting through barriers and strategies, and gating sequences feeding back consumer progress for capacity control.</desc>
+        <defs>
+          <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/>
+          </marker>
+          <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#eb6c36"/>
+          </marker>
+          <marker id="arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#2e5aa8"/>
+          </marker>
+        </defs>
+
+        <rect width="100%" height="100%" fill="#f5f5f5"/>
+
+        <!-- Zones -->
+        <rect x="40" y="40" width="1200" height="112" rx="8" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+        <rect x="56" y="44" width="112" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="112" y="52" fill="rgba(45,49,66,0.40)" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.14em">CONFIGURATION</text>
+
+        <rect x="40" y="184" width="1200" height="272" rx="8" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+        <rect x="56" y="188" width="112" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="112" y="196" fill="rgba(45,49,66,0.40)" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.14em">EVENT PIPELINE</text>
+
+        <rect x="40" y="480" width="1200" height="120" rx="8" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+        <rect x="56" y="484" width="176" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="144" y="492" fill="rgba(45,49,66,0.40)" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.14em">CONSUMER COORDINATION</text>
+
+        <!-- Connectors: configuration -->
+        <path d="M 600,136 V 160 Q 600,168 592,168 H 402 Q 394,168 394,176 V 256"
+              fill="none" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+        <path d="M 680,136 V 160 Q 680,168 688,168 H 1144 Q 1152,168 1152,176 V 256"
+              fill="none" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+
+        <rect x="456" y="144" width="48" height="16" rx="2" fill="#f5f5f5"/>
+        <text x="480" y="156" fill="#7a8399" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">BUILDS</text>
+        <rect x="888" y="144" width="40" height="16" rx="2" fill="#f5f5f5"/>
+        <text x="908" y="156" fill="#7a8399" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">WIRES</text>
+
+        <!-- Connectors: primary publish and consume path -->
+        <line x1="232" y1="288" x2="304" y2="288" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+        <line x1="484" y1="288" x2="560" y2="288" stroke="#eb6c36" stroke-width="1.2" marker-end="url(#arrow-accent)"/>
+        <line x1="760" y1="288" x2="832" y2="288" stroke="#eb6c36" stroke-width="1.2" marker-end="url(#arrow-accent)"/>
+        <line x1="1012" y1="288" x2="1060" y2="288" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <line x1="876" y1="320" x2="876" y2="376" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <line x1="1152" y1="320" x2="1152" y2="376" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+        <!-- Consumer progress and backpressure loop -->
+        <path d="M 1060,304 H 1040 Q 1032,304 1032,312 V 456 Q 1032,464 1024,464 H 688 Q 680,464 680,472 V 520"
+              fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <line x1="624" y1="520" x2="624" y2="320" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+
+        <!-- Connector labels -->
+        <rect x="240" y="264" width="56" height="16" rx="2" fill="#f5f5f5"/>
+        <text x="268" y="276" fill="#2e5aa8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">CLAIM</text>
+        <rect x="492" y="264" width="60" height="16" rx="2" fill="#f5f5f5"/>
+        <text x="522" y="276" fill="#eb6c36" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">DELEGATE</text>
+        <rect x="768" y="264" width="56" height="16" rx="2" fill="#f5f5f5"/>
+        <text x="796" y="276" fill="#eb6c36" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">CURSOR</text>
+        <rect x="1016" y="264" width="40" height="16" rx="2" fill="#f5f5f5"/>
+        <text x="1036" y="276" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">READ</text>
+
+        <rect x="884" y="336" width="64" height="16" rx="2" fill="#f5f5f5"/>
+        <text x="916" y="348" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">WAIT FOR</text>
+        <rect x="1160" y="336" width="64" height="16" rx="2" fill="#f5f5f5"/>
+        <text x="1192" y="348" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">ON EVENT</text>
+        <rect x="760" y="440" width="64" height="16" rx="2" fill="#f5f5f5"/>
+        <text x="792" y="452" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">ADVANCE</text>
+        <rect x="528" y="392" width="88" height="16" rx="2" fill="#f5f5f5"/>
+        <text x="572" y="404" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">MIN SEQUENCE</text>
+
+        <!-- Nodes -->
+        <rect x="520" y="72" width="240" height="64" rx="6" fill="#f5f5f5"/>
+        <rect x="520" y="72" width="240" height="64" rx="6" fill="rgba(45,49,66,0.03)" stroke="rgba(45,49,66,0.30)" stroke-width="1"/>
+        <rect x="528" y="80" width="32" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.24)" stroke-width="0.8"/>
+        <text x="544" y="88" fill="#7a8399" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">DSL</text>
+        <text x="640" y="108" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Disruptor DSL</text>
+        <text x="640" y="124" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">consumer graph · lifecycle</text>
+
+        <rect x="72" y="256" width="160" height="64" rx="6" fill="#f5f5f5"/>
+        <rect x="72" y="256" width="160" height="64" rx="6" fill="rgba(79,93,117,0.10)" stroke="#7a8399" stroke-width="1"/>
+        <rect x="80" y="264" width="40" height="12" rx="2" fill="transparent" stroke="rgba(122,131,153,0.40)" stroke-width="0.8"/>
+        <text x="100" y="272" fill="#7a8399" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">INPUT</text>
+        <text x="152" y="292" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Producer</text>
+        <text x="152" y="308" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">translate · publish</text>
+
+        <rect x="304" y="256" width="180" height="64" rx="6" fill="#f5f5f5"/>
+        <rect x="304" y="256" width="180" height="64" rx="6" fill="rgba(235,108,54,0.08)" stroke="#eb6c36" stroke-width="1.2"/>
+        <rect x="312" y="264" width="32" height="12" rx="2" fill="transparent" stroke="rgba(235,108,54,0.50)" stroke-width="0.8"/>
+        <text x="328" y="272" fill="#eb6c36" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">STORE</text>
+        <text x="394" y="292" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">RingBuffer</text>
+        <text x="394" y="308" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">preallocated events · 2ⁿ</text>
+
+        <rect x="560" y="256" width="200" height="64" rx="6" fill="#f5f5f5"/>
+        <rect x="560" y="256" width="200" height="64" rx="6" fill="rgba(235,108,54,0.08)" stroke="#eb6c36" stroke-width="1.2"/>
+        <rect x="568" y="264" width="32" height="12" rx="2" fill="transparent" stroke="rgba(235,108,54,0.50)" stroke-width="0.8"/>
+        <text x="584" y="272" fill="#eb6c36" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">CORE</text>
+        <text x="660" y="292" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Sequencer</text>
+        <text x="660" y="308" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">single / multi producer</text>
+
+        <rect x="832" y="256" width="180" height="64" rx="6" fill="#f5f5f5"/>
+        <rect x="832" y="256" width="180" height="64" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <rect x="840" y="264" width="40" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.40)" stroke-width="0.8"/>
+        <text x="860" y="272" fill="#2d3142" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">SYNC</text>
+        <text x="922" y="292" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">SequenceBarrier</text>
+        <text x="922" y="308" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">dependency cursor</text>
+
+        <rect x="1060" y="256" width="180" height="64" rx="6" fill="#f5f5f5"/>
+        <rect x="1060" y="256" width="180" height="64" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <rect x="1068" y="264" width="40" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.40)" stroke-width="0.8"/>
+        <text x="1088" y="272" fill="#2d3142" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">LOOP</text>
+        <text x="1150" y="292" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">BatchEventProcessor</text>
+        <text x="1150" y="308" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">wait · batch · advance</text>
+
+        <rect x="832" y="376" width="180" height="64" rx="6" fill="#f5f5f5"/>
+        <rect x="832" y="376" width="180" height="64" rx="6" fill="rgba(45,49,66,0.03)" stroke="rgba(45,49,66,0.30)" stroke-width="1"/>
+        <rect x="840" y="384" width="40" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.24)" stroke-width="0.8"/>
+        <text x="860" y="392" fill="#7a8399" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">POLICY</text>
+        <text x="922" y="412" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">WaitStrategy</text>
+        <text x="922" y="428" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">spin · yield · sleep · block</text>
+
+        <rect x="1060" y="376" width="180" height="64" rx="6" fill="#f5f5f5"/>
+        <rect x="1060" y="376" width="180" height="64" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <rect x="1068" y="384" width="40" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.40)" stroke-width="0.8"/>
+        <text x="1088" y="392" fill="#2d3142" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">USER</text>
+        <text x="1150" y="412" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">EventHandler</text>
+        <text x="1150" y="428" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">onEvent(event, sequence)</text>
+
+        <rect x="560" y="520" width="200" height="64" rx="6" fill="#f5f5f5"/>
+        <rect x="560" y="520" width="200" height="64" rx="6" fill="rgba(45,49,66,0.05)" stroke="#4f5d75" stroke-width="1"/>
+        <rect x="568" y="528" width="40" height="12" rx="2" fill="transparent" stroke="rgba(79,93,117,0.50)" stroke-width="0.8"/>
+        <text x="588" y="536" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">STATE</text>
+        <text x="660" y="556" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Gating Sequences</text>
+        <text x="660" y="572" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">slowest consumer progress</text>
+
+        <!-- Legend -->
+        <line x1="40" y1="624" x2="1240" y2="624" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+        <text x="40" y="644" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">LEGEND</text>
+
+        <rect x="40" y="660" width="16" height="12" rx="2" fill="rgba(235,108,54,0.08)" stroke="#eb6c36" stroke-width="1"/>
+        <text x="64" y="668" fill="#4f5d75" font-size="8" font-family="'Geist', sans-serif">Core hot path</text>
+
+        <rect x="192" y="660" width="16" height="12" rx="2" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <text x="216" y="668" fill="#4f5d75" font-size="8" font-family="'Geist', sans-serif">Processing component</text>
+
+        <rect x="400" y="660" width="16" height="12" rx="2" fill="rgba(45,49,66,0.05)" stroke="#4f5d75" stroke-width="1"/>
+        <text x="424" y="668" fill="#4f5d75" font-size="8" font-family="'Geist', sans-serif">Progress state</text>
+
+        <line x1="560" y1="668" x2="592" y2="668" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+        <text x="604" y="668" fill="#4f5d75" font-size="8" font-family="'Geist', sans-serif">Publish path</text>
+
+        <line x1="736" y1="668" x2="768" y2="668" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <text x="780" y="668" fill="#4f5d75" font-size="8" font-family="'Geist', sans-serif">Consume path</text>
+
+        <line x1="912" y1="668" x2="944" y2="668" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+        <text x="956" y="668" fill="#4f5d75" font-size="8" font-family="'Geist', sans-serif">Configuration / feedback</text>
+      </svg>
+    </div>
+
+    <footer>Source model: Disruptor 4.0.0 · static editorial diagram · default diagram-design profile</footer>
+  </main>
+</body>
+</html>

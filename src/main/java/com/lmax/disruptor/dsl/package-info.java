@@ -1,6 +1,8 @@
 /**
  * A DSL-style API for setting up the disruptor pattern around a ring buffer.
  *
+ * 用于围绕环形缓冲区搭建 disruptor 模式的 DSL 风格 API。
+ *
  * <h2>Example code</h2>
  * <pre>{@code
  * // Specify the size of the ring buffer, must be power of 2.

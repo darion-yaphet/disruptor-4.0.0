@@ -27,6 +27,10 @@ jmh {
     failOnError = true
     verbosity = 'NORMAL'
     includeTests = true
+    if (project.hasProperty('jmhInclude'))
+    {
+        includes = [project.property('jmhInclude')]
+    }
 }
 
 task jmhProfilers(type: JavaExec, description:'Lists the available profilers for the jmh task', group: 'jmh') {

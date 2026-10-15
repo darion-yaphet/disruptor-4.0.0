@@ -25,13 +25,22 @@ import com.lmax.disruptor.ExceptionHandler;
  * For example:
  * <pre><code>disruptorWizard.handleExceptionsIn(eventHandler).with(exceptionHandler);</code></pre>
  *
+ * 为指定事件处理器设置异常处理器的支撑类。用法示例见上面代码。
+ *
  * @param <T> the type of event being handled.
+ *
+ * 参数 <T>：被处理事件的类型。
  */
 public class ExceptionHandlerSetting<T>
 {
     private final EventHandlerIdentity handlerIdentity;
     private final ConsumerRepository consumerRepository;
 
+    /**
+     * Creates the setting for the given handler within the given consumer repository.
+     *
+     * 为给定消费者仓库中的指定事件处理器创建设置对象。
+     */
     ExceptionHandlerSetting(
         final EventHandlerIdentity handlerIdentity,
         final ConsumerRepository consumerRepository)
@@ -43,12 +52,17 @@ public class ExceptionHandlerSetting<T>
     /**
      * Specify the {@link ExceptionHandler} to use with the event handler.
      *
+     * 指定该事件处理器要使用的 ExceptionHandler。
+     *
      * @param exceptionHandler the exception handler to use.
+     *
+     * exceptionHandler：要使用的异常处理器。
      */
     @SuppressWarnings("unchecked")
     public void with(final ExceptionHandler<? super T> exceptionHandler)
     {
         final EventProcessor eventProcessor = consumerRepository.getEventProcessorFor(handlerIdentity);
+        // 只有 BatchEventProcessor 支持异常处理器，设置后唤醒其屏障让新处理器生效
         if (eventProcessor instanceof BatchEventProcessor)
         {
             ((BatchEventProcessor<T>) eventProcessor).setExceptionHandler(exceptionHandler);
